@@ -1,0 +1,49 @@
+
+name: Build Universal Ludo QA APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Extract Android project
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          mkdir project
+          unzip -o UniversalLudoQAAndroid.zip -d project
+          find project -type f \( -name settings.gradle -o -name settings.gradle.kts \)
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        run: |
+          ROOT=$(find project -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+          if [ -z "$ROOT" ]; then
+            echo "Gradle project not found"
+            exit 1
+          fi
+          cd "$(dirname "$ROOT")"
+          gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniversalLudoQA-debug
+          path: project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
