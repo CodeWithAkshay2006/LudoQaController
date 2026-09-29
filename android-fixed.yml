@@ -1,0 +1,79 @@
+name: Build Universal Ludo QA APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build debug APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle 8.7
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.7'
+
+      - name: Verify and extract Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP='UniversalLudoQAAndroid-stable.zip'
+          test -f "$ZIP" || { echo "Missing $ZIP"; exit 1; }
+          rm -rf project
+          mkdir -p project
+          unzip -q -o "$ZIP" -d project
+          test -f project/settings.gradle.kts
+          test -f project/build.gradle.kts
+          test -f project/app/build.gradle.kts
+
+      - name: Build APK
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "$ANDROID_HOME/platforms/android-35" || true
+          gradle --version
+          gradle --no-daemon --stacktrace clean assembleDebug
+
+      - name: Verify APK
+        working-directory: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$APK"
+          echo "APK created successfully: $APK"
+          ls -lh "$APK"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniversalLudoQA-debug
+          path: project/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload build diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniversalLudoQA-build-diagnostics
+          path: |
+            project/**/build/reports/**
+            project/**/build/outputs/logs/**
+          if-no-files-found: ignore
