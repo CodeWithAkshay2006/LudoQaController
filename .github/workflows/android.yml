@@ -1,4 +1,3 @@
-
 name: Build Universal Ludo QA APK
 
 on:
@@ -14,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -24,22 +23,30 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y unzip
-          mkdir project
+          rm -rf project
+          mkdir -p project
           unzip -o UniversalLudoQAAndroid.zip -d project
-          find project -type f \( -name settings.gradle -o -name settings.gradle.kts \)
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
 
       - name: Build APK
         run: |
-          ROOT=$(find project -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+          ROOT=$(find project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -print -quit)
+
           if [ -z "$ROOT" ]; then
-            echo "Gradle project not found"
+            echo "ERROR: Gradle project not found"
             exit 1
           fi
-          cd "$(dirname "$ROOT")"
-          gradle assembleDebug
+
+          PROJECT_DIR="$(dirname "$ROOT")"
+          echo "Gradle project: $PROJECT_DIR"
+
+          cd "$PROJECT_DIR"
+          gradle --version
+          gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
